@@ -7,15 +7,16 @@
 <div class="stat"><span>Console outbox</span><strong>{{ outbox_count }}</strong></div></section>
 <section class="panel"><div class="section-title"><h2>Pending drafts</h2><form action="/admin/followups/prepare" method="post"><button class="secondary" type="submit">Prepare due follow-ups</button></form></div>
 {% if not pending %}<p class="empty">No pending drafts yet. <a href="/">Send a test inquiry</a>.</p>{% endif %}
-{% for draft in pending %}<div class="draft"><div class="draft-heading"><span class="tag">{{ draft.kind }} reply</span><span class="subtle">Inquiry #{{ draft.inquiry_id }} · {{ draft.inquiry.email }}</span></div>
+{% for draft in pending %}<div class="draft"><div class="draft-heading"><div><span class="tag">{{ draft.kind }} reply</span> <span class="tag {% if draft.inquiry.priority == 'high' %}tag-urgent{% endif %}">{{ draft.inquiry.priority or 'unclassified' }} priority</span></div><span class="subtle">Inquiry #{{ draft.inquiry_id }} · {{ draft.inquiry.email }}</span></div>
+<p class="subtle">Category: {{ draft.inquiry.intent or 'general' }} · Summary: {{ draft.inquiry.summary or '—' }}</p>
 <div class="quote">{{ draft.inquiry.message }}</div>
 <form action="/admin/drafts/{{ draft.id }}/approve" method="post"><label>Subject<input name="subject" maxlength="200" value="{{ draft.subject }}" required></label>
 <label>Editable reply<textarea name="body" rows="8" maxlength="20000" required>{{ draft.body }}</textarea></label>
 <label>Reviewer name<input name="reviewer" maxlength="120" required placeholder="Your name"></label><button type="submit">Approve &amp; send</button></form>
 <form class="reject" action="/admin/drafts/{{ draft.id }}/reject" method="post"><button class="danger" type="submit">Reject draft</button></form>
 </div>{% endfor %}</section>
-<div class="columns below"><section class="panel"><h2>CRM leads</h2><div class="scroll"><table><thead><tr><th>Name</th><th>Email</th><th>Interest</th><th>Status</th></tr></thead>
-<tbody>{% for lead in leads %}<tr><td>{{ lead.name }}</td><td>{{ lead.email }}</td><td>{{ lead.interest }}</td><td>{{ lead.status }}</td></tr>{% endfor %}</tbody></table></div></section>
+<div class="columns below"><section class="panel"><h2>CRM leads</h2><p class="hint">Qualify or archive leads during the review. Changes are recorded in the audit trail.</p><div class="scroll"><table><thead><tr><th>Name</th><th>Email</th><th>Interest</th><th>Status</th><th>Update status</th></tr></thead>
+<tbody>{% for lead in leads %}<tr><td>{{ lead.name }}</td><td>{{ lead.email }}</td><td>{{ lead.interest }}</td><td>{{ lead.status }}</td><td><form action="/admin/leads/{{ lead.id }}/status" method="post" class="lead-form"><label class="sr-only" for="lead-status-{{ lead.id }}">Lead status</label><select id="lead-status-{{ lead.id }}" name="status" aria-label="Lead status">{% for choice in lead_statuses %}<option value="{{ choice }}" {% if choice == lead.status %}selected{% endif %}>{{ choice }}</option>{% endfor %}</select><input name="reviewer" aria-label="Reviewer name" placeholder="Reviewer" maxlength="120" required><button class="secondary" type="submit">Save</button></form></td></tr>{% endfor %}</tbody></table></div></section>
 <section class="panel"><h2>Recent inquiries</h2><div class="scroll"><table><thead><tr><th>#</th><th>Subject</th><th>Intent</th><th>Status</th></tr></thead>
 <tbody>{% for inquiry in inquiries %}<tr><td>{{ inquiry.id }}</td><td>{{ inquiry.subject or 'No subject' }}</td><td>{{ inquiry.intent or '—' }}</td><td>{{ inquiry.status }}</td></tr>{% endfor %}</tbody></table></div></section></div>
 <section class="panel"><h2>Audit trail</h2><div class="scroll"><table><thead><tr><th>Time (UTC)</th><th>Inquiry</th><th>Action</th><th>Details</th></tr></thead>

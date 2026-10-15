@@ -23,11 +23,13 @@ stateDiagram-v2
   followup_review --> sent: human rejects follow-up
 ```
 
+Human reviewers can also qualify or archive local CRM leads; these changes are audited without changing the inquiry state. Urgent items appear before regular drafts in the review dashboard.
+
 Every approved message comes from a stored, reviewed draft. A follow-up is not sent without opt-in and a second approval.
 
 ## Idempotency and failure handling
 
-- `idempotency_key` is optional on inquiry creation; retries with the same key and message return the original record. A reused key with different email/message yields HTTP 409.
+- `idempotency_key` is optional on inquiry creation; retries with the same key and identical validated payload return the original record. Changing any of the name, email, company, subject, message, source or follow-up consent fields yields HTTP 409.
 - `POST /api/inquiries/{id}/process` skips already processed/sent/closed inquiries. It records `error` status and an audit event if extraction fails; the n8n HTTP node receives an error.
 - Draft creation is idempotent via unique (`inquiry_id`, `kind`).
 - Approval refuses drafts that aren't `pending`.
@@ -36,9 +38,9 @@ Every approved message comes from a stored, reviewed draft. A follow-up is not s
 
 ## LLM behavior
 
-- Mock mode: deterministic keyword matching + normalized summary. It's explicit in the UI/docs that this is a *simulation*, not a model inference.
+- Mock mode: deterministic whole-phrase keyword matching, priority selection, bullet extraction and normalized summary. It's explicit in the UI/docs that this is a *simulation*, not a model inference.
 - OpenAI mode: JSON-only classification request, validated through Pydantic. No private credentials are embedded in workflow JSON; the prompt treats customer input as untrusted.
-- The reply template deliberately avoids inventing prices, availability or commitments. The reviewer can edit it.
+- Intent-specific reply templates deliberately avoid inventing prices, availability or commitments. The reviewer can edit it.
 
 ## Security and data protection
 

@@ -21,7 +21,14 @@ def create_inquiry(db: Session, data: InquiryCreate) -> Inquiry:
     if data.idempotency_key:
         existing = db.scalar(select(Inquiry).where(Inquiry.idempotency_key == data.idempotency_key))
         if existing:
-            if existing.email != str(data.email) or existing.message != data.message:
+            # The same event ID must refer to the same *whole* request, not just
+            # the email and message. Consent and source affect business behavior.
+            incoming = data.model_dump(mode="json")
+            fields = (
+                "name", "email", "company", "subject", "message",
+                "source", "consent_to_follow_up",
+            )
+            if any(getattr(existing, field) != incoming[field] for field in fields):
                 raise ValueError("Idempotency key already used for a different inquiry")
             return existing
     inquiry = Inquiry(**data.model_dump(mode="json"))
@@ -69,27 +76,45 @@ def process_inquiry(db: Session, inquiry: Inquiry, settings: Settings) -> Inquir
 
 
 def compose_draft(inquiry: Inquiry, kind: str) -> tuple[str, str]:
+    """Create a cautious, intent-aware starting point for human editing.
+
+    The message is a template, *not* an autonomous answer to the customer.
+    No price, availability, SLA, or service commitment is invented.
+    """
     first_name = inquiry.name.strip().split()[0]
     if kind == "followup":
         return (
             f"Following up: {inquiry.subject or 'your inquiry'}",
-            f"Hi {first_name},\n\nI wanted to follow up on your earlier inquiry. "
-            "Please let us know if you still need assistance or would like to discuss next steps.\n\n"
+            f"Hi {first_name},\n\nI'm checking whether you still need help with your request. "
+            "If you'd like to continue, just reply to this email.\n\n"
             "Kind regards,\nCustomer Success Team",
         )
 
-    subjects = {
-        "pricing": "Thanks for your pricing inquiry",
-        "appointment": "Let's arrange a time to talk",
-        "support": "We've received your support request",
-        "general": "Thanks for contacting us",
+    responses = {
+        "pricing": (
+            "Your pricing request",
+            "Thanks for asking about pricing. We'll review the scope of your request "
+            "before recommending an approach. If we need more details, we'll ask first.",
+        ),
+        "appointment": (
+            "Your appointment request",
+            "Thanks for getting in touch about scheduling. We'll review your request "
+            "and follow up to agree on a suitable time. No appointment is confirmed yet.",
+        ),
+        "support": (
+            "Your support request",
+            "Thanks for reporting this issue. We'll review the information you shared. "
+            "If anything is missing, we'll ask for the details needed to investigate.",
+        ),
+        "general": (
+            "Thanks for contacting us",
+            "Thanks for reaching out. We've received your message and will review "
+            "it before responding with the appropriate next steps.",
+        ),
     }
-    body = (
-        f"Hi {first_name},\n\nThank you for reaching out. We've received your inquiry "
-        "and will review your requirements. Our team will get back to you with the "
-        "appropriate next steps.\n\nKind regards,\nCustomer Success Team"
-    )
-    return subjects.get(inquiry.intent, subjects["general"]), body
+    subject, message = responses.get(inquiry.intent, responses["general"])
+    body = f"Hi {first_name},\n\n{message}\n\nKind regards,\nCustomer Success Team"
+    return subject, body
 
 
 def create_draft(db: Session, inquiry: Inquiry, kind: str = "initial") -> Draft:
@@ -170,7 +195,8 @@ def approve_draft(db: Session, draft: Draft, subject: str, body: str, reviewer: 
         inquiry.status = "followup_sent"
     if inquiry.lead_id:
         lead = db.get(Lead, inquiry.lead_id)
-        if lead:
+        if lead and lead.status == "new":
+            # Preserve an explicit qualification/archival decision made by a reviewer.
             lead.status = "contacted"
     audit(db, inquiry.id, "draft.sent", f"kind={draft.kind}; reviewer={reviewer}")
     db.commit()
@@ -183,4 +209,28 @@ def reject_draft(db: Session, draft: Draft, reviewer: str) -> None:
     draft.reviewer = reviewer[:120]
     draft.inquiry.status = "closed" if draft.kind == "initial" else "sent"
     audit(db, draft.inquiry_id, "draft.rejected", f"kind={draft.kind}")
+    db.commit()
+
+
+ALLOWED_LEAD_STATUSES = frozenset({"new", "qualified", "contacted", "archived"})
+
+
+def update_lead_status(db: Session, lead: Lead, new_status: str, reviewer: str) -> None:
+    """A reviewer can triage a CRM lead without changing inquiry state."""
+    if new_status not in ALLOWED_LEAD_STATUSES:
+        raise ValueError("Unsupported lead status")
+    reviewer = reviewer.strip()
+    if not reviewer or len(reviewer) > 120:
+        raise ValueError("Reviewer name required (max 120 characters)")
+    if lead.status == new_status:
+        return
+    old_status = lead.status
+    lead.status = new_status
+    latest_inquiry = db.scalar(
+        select(Inquiry).where(Inquiry.lead_id == lead.id).order_by(Inquiry.id.desc()).limit(1)
+    )
+    audit(
+        db, latest_inquiry.id if latest_inquiry else None, "lead.status_changed",
+        f"lead={lead.id}; {old_status}->{new_status}; reviewer={reviewer}",
+    )
     db.commit()

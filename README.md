@@ -1,8 +1,8 @@
 # AI Email & CRM Automation · n8n + FastAPI
 
-**A runnable, human-in-the-loop business automation portfolio project.**
+**A local human-in-the-loop automation demo with a reviewer dashboard and CRM lead triage.**
 
-Turn a web form or webhook inquiry into an **AI-classified lead**, an **internal CRM record**, and an **editable reply awaiting human approval**. After approval, optionally prepare a scheduled follow-up draft. Designed as an end-to-end technical demonstration for AI automation teams.
+Turn a web form or webhook inquiry into an **AI-classified lead**, an **internal CRM record**, and an **editable reply awaiting human approval**. After approval, optionally prepare a scheduled follow-up draft. Designed as a practice project for backend integration and customer-service automation.
 
 **Tech:** n8n · Python/FastAPI · SQLite/SQLAlchemy · OpenAI API (optional) · Docker Compose · Mailpit · Pytest
 
@@ -15,10 +15,11 @@ Turn a web form or webhook inquiry into an **AI-classified lead**, an **internal
 - Classifies inquiries by **intent** (`pricing`, `appointment`, `support`, `general`) and **priority**.
 - Extracts a concise summary and requirements. Set `AI_MODE=openai` for real LLM-powered extraction.
 - Creates/updates a **local CRM lead** by email (SQLite); no external CRM credentials required.
-- Creates a reply **draft**, which a reviewer can edit, approve, or reject in the web dashboard.
+- Creates an **intent-specific reply draft** (pricing, scheduling, support, or general), which a reviewer can edit, approve, or reject.
+- Displays **urgent inquiries first** in the approval inbox; a reviewer can manually mark CRM leads as new, qualified, contacted, or archived.
 - Sends approved emails to **Mailpit (local inbox)** in Docker; when run without SMTP, stores them in a local outbox.
 - Schedules follow-up **drafts only with opt-in** and requires a second approval before sending.
-- Keeps a basic audit trail; includes input validation, idempotency keys, tests, and GitHub Actions CI.
+- Keeps a basic audit trail, including manual lead status changes; includes validation, full-payload idempotency checks, tests, and GitHub Actions CI.
 
 ## Architecture
 
@@ -132,7 +133,7 @@ python -m pytest -q
 python scripts/validate_workflows.py
 ```
 
-These tests cover authentication, validation, CRM upserts, draft idempotency, human approval, rejection, follow-up consent, audit logs and HTML escaping. They use a temporary in-memory SQLite database and no external network. Note that **the live n8n import / Docker integration has not been validated by this test suite**.
+These tests cover authentication, validation, CRM upserts, full-payload idempotency, intent-aware drafts, priority sorting, manual lead qualification, human approval, rejection, follow-up consent, audit logs and HTML escaping. They use a temporary in-memory SQLite database and no external network. Note that **the live n8n import / Docker integration has not been validated by this test suite**.
 
 ### Run API alone, without Docker
 
@@ -154,12 +155,13 @@ You can call the documented internal API endpoints (`/docs`) using your `INTERNA
 | POST | `/api/inquiries/{id}/draft` | Create editable initial draft | `X-Internal-Token` |
 | GET | `/api/inquiries/{id}` | Check status / summary | `X-Internal-Token` |
 | POST | `/api/followups/prepare` | Prepare due, opted-in follow-up drafts | `X-Internal-Token` |
-| GET | `/admin` | Review, CRM, audit trail | HTTP Basic |
+| GET | `/admin` | Review, priority queue, CRM, audit trail | HTTP Basic |
+| POST | `/admin/leads/{id}/status` | Manual lead qualification / archiving | HTTP Basic |
 | POST | `/admin/drafts/{id}/approve` | Human review + send | HTTP Basic |
 | POST | `/admin/drafts/{id}/reject` | Reject without sending | HTTP Basic |
 | GET | `/admin/outbox` | Show safe local outbox (without SMTP) | HTTP Basic |
 
-Detailed implementation and tradeoffs: [docs/architecture.md](docs/architecture.md).
+Detailed implementation and tradeoffs: [docs/architecture.md](docs/architecture.md). A map of code changes: [docs/implementation-notes.md](docs/implementation-notes.md).
 
 ## Publish on GitHub
 

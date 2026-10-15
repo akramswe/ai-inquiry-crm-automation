@@ -8,7 +8,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session, selectinload
 
 from .config import Settings, get_settings
@@ -17,7 +17,7 @@ from .models import AuditEvent, Draft, Inquiry, Lead, OutboxMessage
 from .schemas import InquiryCreate, WorkflowResult
 from .services import (
     approve_draft, create_draft, create_inquiry, prepare_followups,
-    process_inquiry, reject_draft,
+    process_inquiry, reject_draft, update_lead_status, ALLOWED_LEAD_STATUSES,
 )
 
 logging.basicConfig(level=get_settings().log_level)
@@ -150,9 +150,14 @@ def demo_submit(
 
 @app.get("/admin", response_class=HTMLResponse)
 def admin_dashboard(request: Request, _admin: str = Depends(require_admin), db: Session = Depends(get_db)):
+    # Put urgent customer inquiries first; show oldest items first within a tier.
     pending = db.scalars(
-        select(Draft).options(selectinload(Draft.inquiry))
-        .where(Draft.status == "pending").order_by(Draft.created_at.desc())
+        select(Draft).join(Draft.inquiry).options(selectinload(Draft.inquiry))
+        .where(Draft.status == "pending")
+        .order_by(
+            case((Inquiry.priority == "high", 0), (Inquiry.priority == "medium", 1), else_=2),
+            Draft.created_at.asc(), Draft.id.asc(),
+        )
     ).all()
     inquiries = db.scalars(select(Inquiry).order_by(Inquiry.created_at.desc()).limit(30)).all()
     events = db.scalars(select(AuditEvent).order_by(AuditEvent.id.desc()).limit(20)).all()
@@ -162,6 +167,7 @@ def admin_dashboard(request: Request, _admin: str = Depends(require_admin), db: 
     return templates.TemplateResponse(request, "admin.html", {
         "pending": pending, "inquiries": inquiries, "events": events,
         "leads": leads, "sent": sent, "outbox_count": outbox_count,
+        "lead_statuses": sorted(ALLOWED_LEAD_STATUSES),
     })
 
 
@@ -197,6 +203,23 @@ def reject(draft_id: int, reviewer: str = Form(default="Reviewer"), db: Session 
         reject_draft(db, draft, reviewer)
     except ValueError as error:
         raise HTTPException(status_code=409, detail=str(error)) from error
+    return RedirectResponse(url="/admin", status_code=303)
+
+
+@app.post("/admin/leads/{lead_id}/status", dependencies=[Depends(guard_admin_post)])
+def change_lead_status(
+    lead_id: int,
+    status_value: str = Form(alias="status"),
+    reviewer: str = Form(),
+    db: Session = Depends(get_db),
+):
+    lead = db.get(Lead, lead_id)
+    if lead is None:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    try:
+        update_lead_status(db, lead, status_value, reviewer)
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
     return RedirectResponse(url="/admin", status_code=303)
 
 
