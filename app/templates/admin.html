@@ -1,0 +1,23 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Review dashboard · AI Inquiry Automation</title><link rel="stylesheet" href="/static/style.css"></head>
+<body><header><div class="wrap nav"><span class="brand">✳ Reviewer Dashboard</span><a href="/">← Demo form</a></div></header>
+<main class="wrap"><div class="hero small"><span class="eyebrow">HUMAN-IN-THE-LOOP AUTOMATION</span><h1>Approval inbox</h1><p>AI drafts are never sent before you review and approve them.</p></div>
+<section class="stats"><div class="stat"><span>Awaiting approval</span><strong>{{ pending|length }}</strong></div>
+<div class="stat"><span>CRM leads shown</span><strong>{{ leads|length }}</strong></div>
+<div class="stat"><span>Console outbox</span><strong>{{ outbox_count }}</strong></div></section>
+<section class="panel"><div class="section-title"><h2>Pending drafts</h2><form action="/admin/followups/prepare" method="post"><button class="secondary" type="submit">Prepare due follow-ups</button></form></div>
+{% if not pending %}<p class="empty">No pending drafts yet. <a href="/">Send a test inquiry</a>.</p>{% endif %}
+{% for draft in pending %}<div class="draft"><div class="draft-heading"><span class="tag">{{ draft.kind }} reply</span><span class="subtle">Inquiry #{{ draft.inquiry_id }} · {{ draft.inquiry.email }}</span></div>
+<div class="quote">{{ draft.inquiry.message }}</div>
+<form action="/admin/drafts/{{ draft.id }}/approve" method="post"><label>Subject<input name="subject" maxlength="200" value="{{ draft.subject }}" required></label>
+<label>Editable reply<textarea name="body" rows="8" maxlength="20000" required>{{ draft.body }}</textarea></label>
+<label>Reviewer name<input name="reviewer" maxlength="120" required placeholder="Your name"></label><button type="submit">Approve &amp; send</button></form>
+<form class="reject" action="/admin/drafts/{{ draft.id }}/reject" method="post"><button class="danger" type="submit">Reject draft</button></form>
+</div>{% endfor %}</section>
+<div class="columns below"><section class="panel"><h2>CRM leads</h2><div class="scroll"><table><thead><tr><th>Name</th><th>Email</th><th>Interest</th><th>Status</th></tr></thead>
+<tbody>{% for lead in leads %}<tr><td>{{ lead.name }}</td><td>{{ lead.email }}</td><td>{{ lead.interest }}</td><td>{{ lead.status }}</td></tr>{% endfor %}</tbody></table></div></section>
+<section class="panel"><h2>Recent inquiries</h2><div class="scroll"><table><thead><tr><th>#</th><th>Subject</th><th>Intent</th><th>Status</th></tr></thead>
+<tbody>{% for inquiry in inquiries %}<tr><td>{{ inquiry.id }}</td><td>{{ inquiry.subject or 'No subject' }}</td><td>{{ inquiry.intent or '—' }}</td><td>{{ inquiry.status }}</td></tr>{% endfor %}</tbody></table></div></section></div>
+<section class="panel"><h2>Audit trail</h2><div class="scroll"><table><thead><tr><th>Time (UTC)</th><th>Inquiry</th><th>Action</th><th>Details</th></tr></thead>
+<tbody>{% for event in events %}<tr><td>{{ event.created_at.strftime('%Y-%m-%d %H:%M') }}</td><td>{{ event.inquiry_id or '—' }}</td><td>{{ event.action }}</td><td>{{ event.details }}</td></tr>{% endfor %}</tbody></table></div></section>
+<p class="hint">Demo tip: emails sent through Docker appear in <a href="http://localhost:8025" target="_blank" rel="noopener">Mailpit</a>. Without SMTP, see the <a href="/admin/outbox">local outbox</a>.</p><footer>Demo-only basic authentication. Do not expose to the internet without stronger security.</footer></main></body></html>

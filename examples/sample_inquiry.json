@@ -1,0 +1,10 @@
+{
+  "name": "Jamie Lee",
+  "email": "jamie@example.com",
+  "company": "Example Studio",
+  "subject": "Pricing for AI appointment automation",
+  "message": "Hi, can you provide a quote for an AI assistant to manage appointment requests? We'd like a demo next week.",
+  "source": "webform",
+  "consent_to_follow_up": true,
+  "idempotency_key": "portfolio-demo-001"
+}

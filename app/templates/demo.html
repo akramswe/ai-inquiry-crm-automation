@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI Inquiry Automation · Demo</title><link rel="stylesheet" href="/static/style.css"></head>
+<body><header><div class="wrap nav"><span class="brand">✳ AI Inquiry Automation</span><a href="/admin">Reviewer dashboard →</a></div></header>
+<main class="wrap"><div class="hero"><span class="eyebrow">n8n · Python · AI · CRM</span><h1>From customer inquiry<br>to an approved reply.</h1>
+<p>Submit a test inquiry. n8n coordinates classification, CRM lead creation, and an email draft that awaits human approval.</p></div>
+<div class="columns"><section class="panel"><h2>Try the workflow</h2><p class="hint">Use a test email address. This demo never sends an email until a reviewer approves.</p>
+{% if error %}<div class="notice error">{{ error }}</div>{% endif %}
+{% if result %}<div class="notice success"><strong>Inquiry processed.</strong> {{ result }} <p><a href="/admin">Review the draft →</a></p></div>{% endif %}
+<form action="/demo/submit" method="post"><div class="two"><label>Name<input name="name" required maxlength="160" placeholder="Jamie Lee"></label>
+<label>Email<input name="email" type="email" required placeholder="jamie@example.com"></label></div>
+<label>Company (optional)<input name="company" maxlength="160" placeholder="Example Studio"></label>
+<label>Subject<input name="subject" maxlength="200" value="Pricing for AI appointment automation"></label>
+<label>Inquiry<textarea name="message" rows="5" required minlength="5" maxlength="10000">Hi, could you share pricing for an AI assistant that helps us book appointments? We'd like a demo next week.</textarea></label>
+<label class="checkbox"><input type="checkbox" name="consent_to_follow_up" value="true"> I agree to a follow-up message (demo only)</label>
+<button type="submit">Run automation →</button></form></section>
+<aside class="panel flow"><h2>Behind the scenes</h2>
+<div class="step"><span>01</span><div><strong>Receive</strong><p>Webhook captures the inquiry</p></div></div>
+<div class="step"><span>02</span><div><strong>Understand</strong><p>AI extracts intent, priority and requirements</p></div></div>
+<div class="step"><span>03</span><div><strong>Sync CRM</strong><p>Backend upserts a local lead</p></div></div>
+<div class="step"><span>04</span><div><strong>Review draft</strong><p>Human can edit, approve or reject</p></div></div>
+<div class="step"><span>05</span><div><strong>Follow up</strong><p>Opt-in follow-up draft with another approval gate</p></div></div></aside></div>
+<footer>Portfolio demonstration · Not a production email service</footer></main></body></html>

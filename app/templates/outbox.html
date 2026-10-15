@@ -1,0 +1,6 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Local outbox</title><link rel="stylesheet" href="/static/style.css"></head><body>
+<header><div class="wrap nav"><span class="brand">✳ Local Outbox</span><a href="/admin">← Dashboard</a></div></header><main class="wrap">
+<h1>Console-mode messages</h1><p>These messages were saved locally, not transmitted over the internet.</p>
+{% for item in messages %}<section class="panel"><p><strong>To:</strong> {{ item.recipient }} &nbsp; <strong>Subject:</strong> {{ item.subject }}</p><pre>{{ item.body }}</pre></section>
+{% else %}<section class="panel">No messages. In Docker, view approved emails in Mailpit instead.</section>{% endfor %}</main></body></html>

@@ -1,0 +1,14 @@
+.git/
+.env
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.pyc
+*.db
+data/
+n8n_data/
+tests/
+docs/
+examples/
+.github/
